@@ -27,9 +27,8 @@ This project is open source and available under the MIT License.
 
 If you use this project in your own work, please include the following attribution:
 
-> This project uses code from [Dockerized WordPress Deployment](https://github.com/gsusi/yourrepository) by [Your Name].
+> This project uses code from [Dockerized WordPress Deployment with Ansible](https://github.com/gsusI/Dockerized-WordPress-Deployment-with-Ansible) by [Jesus Iniesta].
 
-Replace [Your Name] and the GitHub URL with your own details.
 
 ## Contributing
 
@@ -37,6 +36,6 @@ Contributions are welcome! Please submit a pull request or create an issue on th
 
 ## Contact
 
-If you have any questions or feedback, please contact me at your.email@example.com.
+If you have any questions or feedback, please contact me at jesus.inica@gmail.com.
 
 ---
