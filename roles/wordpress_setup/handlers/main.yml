@@ -1,0 +1,22 @@
+---
+- name: Restart Docker
+  command: docker-compose -f /opt/wordpress/docker-compose.yml down && docker-compose -f /opt/wordpress/docker-compose.yml up -d
+  args:
+    chdir: /opt/wordpress/
+
+- name: Reload WordPress stack
+  block:
+    - name: Bring down the WordPress stack
+      command: docker-compose -f /opt/wordpress/docker-compose.yml down
+      args:
+        chdir: /opt/wordpress/
+
+    - name: Pull the latest images
+      command: docker-compose -f /opt/wordpress/docker-compose.yml pull
+      args:
+        chdir: /opt/wordpress/
+
+    - name: Rebuild and bring up the WordPress stack
+      command: docker-compose -f /opt/wordpress/docker-compose.yml up --build -d
+      args:
+        chdir: /opt/wordpress/

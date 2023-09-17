@@ -1,0 +1,14 @@
+---
+- name: Setup Ubuntu Server
+  hosts: ubuntu
+  become: yes 
+  roles:
+    - initial_setup
+    - ssh_hardening
+    - firewall_setup
+    - docker_setup
+    - networking
+    - security
+    - monitoring
+    - backup
+    - wordpress_setup

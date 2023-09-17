@@ -1,0 +1,47 @@
+---
+- name: Create WordPress directory
+  file:
+    path: /opt/wordpress
+    state: directory
+
+- name: Synchronize files
+  copy:
+    src: ./files/
+    dest: /opt/wordpress
+    force: yes
+  notify: Restart Docker
+
+- name: Debug Nginx Configuration
+  shell: ls -l /opt/wordpress/nginx
+  args:
+    chdir: /opt/wordpress/
+  register: debug_output
+  ignore_errors: true
+
+- debug:
+    var: debug_output.stdout_lines
+
+- name: Ensure php.ini exists in php-fpm build context
+  copy:
+    src: ./files/wordpress/php.ini
+    dest: /opt/wordpress/wordpress/php.ini
+  notify: Restart Docker
+
+- name: Check if WordPress services are running
+  shell: cd /opt/wordpress && docker-compose ps | grep wordpress
+  register: service_check
+  ignore_errors: true
+
+- name: Deploy WordPress stack
+  command: docker-compose -f /opt/wordpress/docker-compose.yml up -d
+  args:
+    chdir: /opt/wordpress/
+  when: service_check.rc != 0
+  notify:
+    - Restart Docker
+
+
+- name: Notify reload if WordPress services are running
+  command: echo "WordPress services are running"
+  when: service_check.rc == 0
+  notify: Reload WordPress stack

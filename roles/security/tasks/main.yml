@@ -1,0 +1,5 @@
+---
+- name: Install Trivy
+  docker_image:
+    name: aquasec/trivy
+    source: pull

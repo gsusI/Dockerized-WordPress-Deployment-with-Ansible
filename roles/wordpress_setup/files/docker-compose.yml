@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  wordpress:
+    build: ./wordpress
+    container_name: wordpress_fpm
+    env_file:
+      - ./wordpress.env
+    depends_on:
+      - mariadb
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - wp_network
+
+  mariadb:
+    container_name: mariadb
+    image: mariadb:latest
+    env_file:
+      - ./mariadb.env
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - wp_network 
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - wordpress_data:/var/www/html
+    ports:
+      - "80:80"
+    depends_on:
+      - wordpress
+    networks:
+      - wp_network
+
+volumes:
+  wordpress_data:
+  mariadb_data:
+
+networks:
+  wp_network:
+    driver: bridge
