@@ -1,0 +1,75 @@
+---
+- name: Copy test email script to server
+  ansible.builtin.copy:
+    src: "{{ role_path }}/templates/test_email.php.j2"
+    dest: "/tmp/test_email.php"
+
+- name: Copy test email script from server to WordPress container
+  ansible.builtin.command: docker cp /tmp/test_email.php wordpress_fpm:/var/www/html/test_email.php
+
+- name: Execute test email script inside WordPress container
+  ansible.builtin.command: docker exec wordpress_fpm php /var/www/html/test_email.php
+  register: test_email_result
+
+- name: Check if test email was sent successfully
+  ansible.builtin.fail:
+    msg: "Test email failed to send. Check the email configuration or server settings."
+  when: "'Test email failed to send.' in test_email_result.stdout"
+
+- name: Show test email result
+  ansible.builtin.debug:
+    var: test_email_result.stdout
+  when: "'Test email failed to send.' in test_email_result.stdout"
+
+- name: Debug email sending failure
+  block:
+    - name: Check WordPress container logs
+      ansible.builtin.command: docker logs wordpress_fpm
+      register: wordpress_logs
+
+    - name: Show WordPress container logs
+      ansible.builtin.debug:
+        var: wordpress_logs.stdout
+
+    - name: Check sendmail configuration inside WordPress container
+      ansible.builtin.command: docker exec wordpress_fpm cat /etc/mail/sendmail.mc
+      register: sendmail_config
+
+    - name: Show sendmail configuration
+      ansible.builtin.debug:
+        var: sendmail_config.stdout
+
+    - name: Check PHP mail configuration
+      ansible.builtin.command: docker exec wordpress_fpm cat /usr/local/etc/php/php.ini
+      register: php_mail_config
+
+    - name: Show PHP mail configuration
+      ansible.builtin.debug:
+        var: php_mail_config.stdout
+
+  when: "'Test email failed to send.' in test_email_result.stdout"
+
+- name: Fetch WordPress logs if test email fails
+  block:
+    - name: Fetch WordPress container logs
+      ansible.builtin.command: docker logs wordpress_fpm
+      register: wordpress_logs
+
+    - name: Copy WordPress logs to local machine
+      ansible.builtin.copy:
+        content: "{{ wordpress_logs.stdout }}"
+        dest: "/tmp/wordpress_logs.txt"
+      delegate_to: localhost
+
+    - name: Fetch PHP mail configuration if test email fails
+      ansible.builtin.command: docker exec wordpress_fpm cat /usr/local/etc/php/php.ini
+      register: php_mail_config
+
+    - name: Copy PHP mail configuration to local machine
+      ansible.builtin.copy:
+        content: "{{ php_mail_config.stdout }}"
+        dest: "/tmp/php_mail_config.ini"
+      delegate_to: localhost
+
+  when: "'Test email failed to send.' in test_email_result.stdout"
+

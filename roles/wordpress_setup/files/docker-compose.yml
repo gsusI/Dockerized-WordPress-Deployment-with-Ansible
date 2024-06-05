@@ -12,6 +12,7 @@ services:
       - wordpress_data:/var/www/html
     networks:
       - wp_network
+    restart: always
 
   mariadb:
     container_name: mariadb
@@ -22,6 +23,7 @@ services:
       - mariadb_data:/var/lib/mysql
     networks:
       - wp_network 
+    restart: always
 
   nginx:
     image: nginx:latest
@@ -35,6 +37,7 @@ services:
       - wordpress
     networks:
       - wp_network
+    restart: always
 
 volumes:
   wordpress_data:

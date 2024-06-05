@@ -39,9 +39,9 @@
   when: service_check.rc != 0
   notify:
     - Restart Docker
-
-
+    
 - name: Notify reload if WordPress services are running
   command: echo "WordPress services are running"
   when: service_check.rc == 0
-  notify: Reload WordPress stack
+  notify:
+    - Reload Docker

@@ -1,0 +1,21 @@
+<?php
+$to = 'jesus.inica@gmail.com';
+$subject = 'Test Email from WordPress FPM Container';
+$message = 'This is a test email sent from the WordPress FPM container.';
+$headers = 'From: wordpress@example.com' . "\r\n" .
+    'Reply-To: wordpress@example.com' . "\r\n" .
+    'X-Mailer: PHP/' . phpversion();
+
+$errorDetail = '';
+set_error_handler(function($severity, $message, $file, $line) use (&$errorDetail) {
+    $errorDetail .= "Error caught: severity {$severity}, message {$message}, file {$file}, line {$line}\n";
+});
+
+if(mail($to, $subject, $message, $headers)) {
+    echo "Test email sent successfully.";
+} else {
+    echo "Failed to send test email. Error detail: " . $errorDetail;
+}
+
+restore_error_handler();
+?>

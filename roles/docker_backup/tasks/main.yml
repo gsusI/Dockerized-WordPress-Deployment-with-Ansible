@@ -1,0 +1,72 @@
+- name: Identify Docker containers
+  ansible.builtin.command: docker ps -q
+  register: docker_container_ids
+
+- name: Backup Docker containers
+  ansible.builtin.command: docker commit {{ item }} {{ item }}_backup:latest
+  loop: "{{ docker_container_ids.stdout_lines }}"
+  register: backup_creation
+  changed_when: backup_creation.rc == 0
+  loop_control:
+    label: "{{ item }}"
+
+- name: Report Docker container backups creation
+  debug:
+    msg: "Backup for Docker container {{ item.item }} has been created successfully."
+  loop: "{{ backup_creation.results }}"
+  when: item.rc == 0
+
+- name: Save Docker backups to local files
+  ansible.builtin.command: docker save -o /tmp/{{ item }}_backup.tar {{ item }}_backup:latest
+  loop: "{{ docker_container_ids.stdout_lines }}"
+  register: backup_saving
+  changed_when: backup_saving.rc == 0
+  loop_control:
+    label: "{{ item }}"
+
+- name: Ensure Docker backups are readable by all users
+  ansible.builtin.file:
+    path: "/tmp/{{ item.item }}_backup.tar"
+    mode: '0644'
+  loop: "{{ backup_saving.results }}"
+  when: item.changed
+
+- name: Report Docker backups saving to local files
+  debug:
+    msg: "Docker container backup {{ item.item }} has been saved to /tmp/{{ item.item }}_backup.tar successfully."
+  loop: "{{ backup_saving.results }}"
+  when: item.rc == 0
+  
+- name: Ensure local backup directory exists on control machine
+  delegate_to: localhost
+  become: false
+  file:
+    path: "{{ playbook_dir }}/local_backups/{{ inventory_hostname }}/"
+    state: directory
+  run_once: true
+
+- name: Copy Docker backups to the local machine
+  ansible.builtin.fetch:
+    src: "/tmp/{{ item.item }}_backup.tar"
+    dest: "{{ playbook_dir }}/local_backups/{{ inventory_hostname }}/"
+    mode: pull
+    compress: yes
+  delegate_to: "{{ inventory_hostname }}"
+  loop: "{{ backup_saving.results }}"
+  when: item.changed
+  loop_control:
+    label: "{{ item.item }}"
+  register: backup_download
+  become: false
+
+- name: Report downloading of Docker backups to the local machine
+  debug:
+    msg: "Docker container backup {{ item.item }} has been downloaded to {{ playbook_dir }}/local_backups/{{ inventory_hostname }}/{{ item.item }}_backup.tar successfully."
+  loop: "{{ backup_download.results }}"
+  when: item.changed
+
+- name: Verify Docker backups
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/local_backups/{{ inventory_hostname }}/{{ item }}_backup.tar"
+  loop: "{{ docker_container_ids.stdout_lines }}"
+  register: backup_files

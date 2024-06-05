@@ -1,0 +1,5 @@
+wordpress_directory: "{{ playbook_dir }}/path/to/wordpress"
+backup_directory: "{{ playbook_dir }}/backups"
+db_user: "wordpress_user"
+db_password: "wordpress_password"
+db_name: "wordpress_db"

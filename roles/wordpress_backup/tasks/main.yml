@@ -1,0 +1,81 @@
+---
+- name: Retrieve WordPress directory path from Docker
+  command: docker inspect --format='{{ "{{" }}range .Mounts{{ "}}" }}{{ "{{" }}if eq .Destination "/var/www/html"{{ "}}" }}{{ "{{" }}.Source{{ "}}" }}{{ "{{" }}end{{ "}}" }}{{ "{{" }}end{{ "}}" }}' wordpress_fpm
+  register: wp_directory_path
+  changed_when: false
+
+- name: Retrieve database credentials
+  include_vars:
+    file: "{{ playbook_dir }}/vars/db_credentials.yml"
+
+- name: Ensure mysqldump is installed in the Docker container
+  ansible.builtin.shell: |
+    docker exec wordpress_fpm apt-get update && apt-get install -y default-mysql-client
+  become: true
+  ignore_errors: false
+
+- name: Dump the WordPress database
+  ansible.builtin.shell: |
+    docker exec wordpress_fpm mysqldump -h {{ db_host }} -u {{ db_user }} -p'{{ db_password }}' {{ db_name }} > /tmp/wordpress_db.sql
+  become: true
+  ignore_errors: false
+  register: dump_result
+
+- name: Debug dump error
+  ansible.builtin.debug:
+    msg: "{{ dump_result.stderr }}"
+  when: dump_result.failed
+  no_log: false
+
+- name: Move SQL dump to WordPress directory
+  ansible.builtin.shell: |
+    mv /tmp/wordpress_db.sql {{ wp_directory_path.stdout }}
+  become: true
+
+- name: Archive WordPress files and database with detailed error output
+  ansible.builtin.shell: |
+    tar --warning=no-file-changed -czf /tmp/wordpress_backup.tar.gz -C {{ wp_directory_path.stdout }} . 2>&1
+  register: tar_result
+  become: true
+  failed_when: tar_result.rc != 0
+  changed_when: tar_result.rc == 0
+  ignore_errors: true
+
+- name: Output detailed error if archiving fails
+  ansible.builtin.debug:
+    msg: "Archiving failed with output: {{ tar_result.stdout }} and error: {{ tar_result.stderr }}"
+  when: tar_result.failed
+- name: Verify the contents of the backup tarball
+  command: tar -tf /tmp/wordpress_backup.tar.gz
+  register: tar_contents
+
+- name: Check if WordPress directory and SQL dump are in the tarball
+  assert:
+    that:
+      - "'wordpress_db.sql' in tar_contents.stdout"
+      - "'{{ wp_directory_path.stdout }}/' in tar_contents.stdout"
+    fail_msg: "Backup verification failed: Required files are missing in the tarball"
+    success_msg: "Backup verification succeeded: All required files are included in the tarball"
+
+- name: Ensure backup file is readable by all users
+  ansible.builtin.file:
+    path: "/tmp/wordpress_backup.tar.gz"
+    mode: '0644'
+  become: true
+
+- name: Ensure local backup directory exists on control machine
+  delegate_to: localhost
+  become: false
+  file:
+    path: "{{ playbook_dir }}/local_backups/{{ inventory_hostname }}/"
+    state: directory
+  run_once: true
+
+- name: Fetch the compressed WordPress directory and database dump to local machine
+  ansible.builtin.fetch:
+    src: "/tmp/wordpress_backup.tar.gz"
+    dest: "{{ playbook_dir }}/local_backups/{{ inventory_hostname }}/"
+    mode: pull
+    compress: yes
+  delegate_to: "{{ inventory_hostname }}"
+  become: false
